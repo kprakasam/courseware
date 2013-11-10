@@ -2,17 +2,15 @@ package edu.sjsu.courseware;
 
 public class Assignment {
     long id;
+    long courseId;
+    long externalToolId;
+    
     String canvasId;
     String canvasLtiId;
 
     String name;
     String canvasName;
     String canvasLtiName;
-
-    String canvasCourseId; 
-    String canvasLtiCourseId; 
-    String canvasLtiCourseCode; 
-    String canvasLtiCourseName; 
 
     String canvasUserId; 
     String canvasLtiUserId; 
@@ -31,6 +29,18 @@ public class Assignment {
     }
     public void setId(long id) {
         this.id = id;
+    }
+    public long getCourseId() {
+        return courseId;
+    }
+    public void setCourseId(long courseId) {
+        this.courseId = courseId;
+    }
+    public long getExternalToolId() {
+        return externalToolId;
+    }
+    public void setExternalToolId(long externalToolId) {
+        this.externalToolId = externalToolId;
     }
     public String getCanvasId() {
         return canvasId;
@@ -61,30 +71,6 @@ public class Assignment {
     }
     public void setCanvasLtiName(String canvasLtiName) {
         this.canvasLtiName = canvasLtiName;
-    }
-    public String getCanvasCourseId() {
-        return canvasCourseId;
-    }
-    public void setCanvasCourseId(String canvasCourseId) {
-        this.canvasCourseId = canvasCourseId;
-    }
-    public String getCanvasLtiCourseId() {
-        return canvasLtiCourseId;
-    }
-    public void setCanvasLtiCourseId(String canvasLtiCourseId) {
-        this.canvasLtiCourseId = canvasLtiCourseId;
-    }
-    public String getCanvasLtiCourseCode() {
-        return canvasLtiCourseCode;
-    }
-    public void setCanvasLtiCourseCode(String canvasLtiCourseCode) {
-        this.canvasLtiCourseCode = canvasLtiCourseCode;
-    }
-    public String getCanvasLtiCourseName() {
-        return canvasLtiCourseName;
-    }
-    public void setCanvasLtiCourseName(String canvasLtiCourseName) {
-        this.canvasLtiCourseName = canvasLtiCourseName;
     }
     public String getCanvasUserId() {
         return canvasUserId;
