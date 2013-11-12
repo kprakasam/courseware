@@ -7,12 +7,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.inject.Inject;
 import javax.sql.DataSource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -21,10 +23,11 @@ import edu.sjsu.courseware.ExternalTool;
 
 @Repository
 public class ExternalToolDAO {
-    private Logger logger = LoggerFactory.getLogger(AssignmentDAO.class);
+    private Logger logger = LoggerFactory.getLogger(ExternalToolDAO.class);
     private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
 
-    public void setDataSource(DataSource dataSource) {
+    @Inject
+    public void init(DataSource dataSource) {
         this.namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
     }
 
@@ -60,18 +63,19 @@ public class ExternalToolDAO {
                      "WHERE "+
                         "consumer_key = :consumerKey";
         
-        Map<String, String> param = Collections.singletonMap("consumerKey", consumerKey);
-        return namedParameterJdbcTemplate.queryForObject(sql, param, new RowMapper<ExternalTool>() {
-
-            public ExternalTool mapRow(ResultSet rs, int rowNum) throws SQLException {
-                ExternalTool externalTool = new ExternalTool();
-                externalTool.setId(rs.getLong("id"));
-                externalTool.setName(rs.getString("name"));
-                externalTool.setConsumerKey(rs.getString("consumer_key"));
-                externalTool.setSharedSecret(rs.getString("shared_secret"));
-                return externalTool;
-            }
-         });
+        Map<String, String> params = Collections.singletonMap("consumerKey", consumerKey);
+        try {
+            return namedParameterJdbcTemplate.queryForObject(sql, params, new RowMapper<ExternalTool>() {
+                public ExternalTool mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    ExternalTool externalTool = new ExternalTool();
+                    externalTool.setId(rs.getLong("id"));
+                    externalTool.setName(rs.getString("name"));
+                    externalTool.setConsumerKey(rs.getString("consumer_key"));
+                    externalTool.setSharedSecret(rs.getString("shared_secret"));
+                    return externalTool;
+                }
+             });
+        } catch (EmptyResultDataAccessException ex) { return null;}
     }
 
     public ExternalTool insert(ExternalTool externalTool) {

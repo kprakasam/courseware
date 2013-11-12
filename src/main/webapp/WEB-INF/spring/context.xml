@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<beans:beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<beans:beans xmlns:oxm="http://www.springframework.org/schema/oxm"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
              xmlns:mvc="http://www.springframework.org/schema/mvc" 
              xmlns:beans="http://www.springframework.org/schema/beans"
-             xmlns:context="http://www.springframework.org/schema/context"
-             xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd
+             xmlns:context="http://www.springframework.org/schema/context"             
+             xsi:schemaLocation="http://www.springframework.org/schema/oxm http://www.springframework.org/schema/oxm/spring-oxm.xsd
+                                 http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd
                                  http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
                                  http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.2.xsd">
 
@@ -21,14 +23,24 @@
   <!-- Only needed because of fileupload  -->
   <beans:bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver" />
 
-  <context:component-scan base-package="edu.sjsu.courseware.controllers" />
+  <context:component-scan base-package="edu.sjsu.courseware.*" />
+
+  <oxm:jaxb2-marshaller id="marshaller">
+      <oxm:class-to-be-bound name="edu.sjsu.courseware.jnlp.Jar"/>
+      <oxm:class-to-be-bound name="edu.sjsu.courseware.jnlp.J2SE"/>
+      <oxm:class-to-be-bound name="edu.sjsu.courseware.jnlp.JNLP"/>
+      <oxm:class-to-be-bound name="edu.sjsu.courseware.jnlp.Applet"/>
+      <oxm:class-to-be-bound name="edu.sjsu.courseware.jnlp.Update"/>
+      <oxm:class-to-be-bound name="edu.sjsu.courseware.jnlp.Resources"/>
+      <oxm:class-to-be-bound name="edu.sjsu.courseware.jnlp.Information"/>
+  </oxm:jaxb2-marshaller>
 
   <!-- Connnection Pool -->
   <beans:bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
-    <beans:property name="driverClassName" value="${jdbc.driverClassName}" />
-    <beans:property name="url" value="${jdbc.url}" />
-    <beans:property name="username" value="${jdbc.username}" />
-    <beans:property name="password" value="${jdbc.password}" />
+    <beans:property name="driverClassName" value="${driverClassName}" />
+    <beans:property name="url" value="${url}" />
+    <beans:property name="username" value="${username}" />
+    <beans:property name="password" value="${password}" />
     <beans:property name="poolPreparedStatements" value="true" />
     <beans:property name="removeAbandoned" value="true" />
     <beans:property name="initialSize" value="10" />

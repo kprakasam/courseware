@@ -10,19 +10,20 @@ public class Assignment {
 
     String name;
     String canvasName;
-    String canvasLtiName;
+
+    String canvasExternalToolName;
 
     String canvasUserId; 
     String canvasLtiUserId; 
     String canvasUserLoginId; 
     String canvasUserRole;
     
+    String lisOutcomeServiceURL;
+    String externalImsLisBasicOutcomUrl;
     String launchPresentationReturnURL;
-    String extendedImsLisBasicOutcomUrl;
 
     String canvasInstanceGuid;
     String canvasInstanceName;
-    String lisOutcomeServiceURL;
     
     public long getId() {
         return id;
@@ -66,11 +67,11 @@ public class Assignment {
     public void setCanvasName(String canvasName) {
         this.canvasName = canvasName;
     }
-    public String getCanvasLtiName() {
-        return canvasLtiName;
+    public String getCanvasExternalToolName() {
+        return canvasExternalToolName;
     }
-    public void setCanvasLtiName(String canvasLtiName) {
-        this.canvasLtiName = canvasLtiName;
+    public void setCanvasExternalToolName(String canvasExternalToolName) {
+        this.canvasExternalToolName = canvasExternalToolName;
     }
     public String getCanvasUserId() {
         return canvasUserId;
@@ -102,11 +103,11 @@ public class Assignment {
     public void setLaunchPresentationReturnURL(String launchPresentationReturnURL) {
         this.launchPresentationReturnURL = launchPresentationReturnURL;
     }
-    public String getExtendedImsLisBasicOutcomUrl() {
-        return extendedImsLisBasicOutcomUrl;
+    public String getExternalImsLisBasicOutcomUrl() {
+        return externalImsLisBasicOutcomUrl;
     }
-    public void setExtendedImsLisBasicOutcomUrl(String extendedImsLisBasicOutcomUrl) {
-        this.extendedImsLisBasicOutcomUrl = extendedImsLisBasicOutcomUrl;
+    public void setExternalImsLisBasicOutcomUrl(String externalImsLisBasicOutcomUrl) {
+        this.externalImsLisBasicOutcomUrl = externalImsLisBasicOutcomUrl;
     }
     public String getCanvasInstanceGuid() {
         return canvasInstanceGuid;
