@@ -4,6 +4,32 @@ CREATE DATABASE `courseware` /*!40100 DEFAULT CHARACTER SET utf8 */$$
 
 delimiter $$
 
+CREATE TABLE `external_tool` (
+  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Unique Key',
+  `name` varchar(255) NOT NULL COMMENT 'Name of the external tool',
+  `consumer_key` varchar(255) NOT NULL COMMENT 'Consumer Key for the external tool',
+  `shared_secret` varchar(255) NOT NULL COMMENT 'Shared Secret for the external tool',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `NAME_UNIQUE` (`name`),
+  UNIQUE KEY `CONSUMER_KEY_UNIQUE` (`consumer_key`),
+  UNIQUE KEY `SHARED_SECRET_UNIQUE` (`shared_secret`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COMMENT='Holds External Tool Configuration'$$
+
+delimiter $$
+
+CREATE TABLE `course` (
+  `course_id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Unique ID',
+  `canvas_course_id` varchar(255) NOT NULL COMMENT 'Unique Canvas Course ID maps to custom_canvas_course_id parameter of POST request',
+  `canvas_lti_course_id` varchar(255) NOT NULL COMMENT 'Unique Canvas LTI Course ID maps to context_id parameter of POST request',
+  `canvas_lti_course_code` varchar(255) NOT NULL COMMENT 'Canvas Course Code maps to context_label parameter of POST request',
+  `canvas_lti_course_name` varchar(255) NOT NULL COMMENT 'Canvas Course Title maps to context_title parameter of POST request',
+  PRIMARY KEY (`course_id`),
+  UNIQUE KEY `LTI_COURSE_ID` (`canvas_lti_course_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COMMENT='Holds Course Details'$$
+
+
+delimiter $$
+
 CREATE TABLE `assignment` (
   `course_id` int(11) NOT NULL COMMENT 'Course to which this assignment belong to',
   `assignment_id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Unique ID',
@@ -31,31 +57,6 @@ CREATE TABLE `assignment` (
 
 delimiter $$
 
-CREATE TABLE `course` (
-  `course_id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Unique ID',
-  `canvas_course_id` varchar(255) NOT NULL COMMENT 'Unique Canvas Course ID maps to custom_canvas_course_id parameter of POST request',
-  `canvas_lti_course_id` varchar(255) NOT NULL COMMENT 'Unique Canvas LTI Course ID maps to context_id parameter of POST request',
-  `canvas_lti_course_code` varchar(255) NOT NULL COMMENT 'Canvas Course Code maps to context_label parameter of POST request',
-  `canvas_lti_course_name` varchar(255) NOT NULL COMMENT 'Canvas Course Title maps to context_title parameter of POST request',
-  PRIMARY KEY (`course_id`),
-  UNIQUE KEY `LTI_COURSE_ID` (`canvas_lti_course_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COMMENT='Holds Course Details'$$
-
-delimiter $$
-
-CREATE TABLE `external_tool` (
-  `id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Unique Key',
-  `name` varchar(255) NOT NULL COMMENT 'Name of the external tool',
-  `consumer_key` varchar(255) NOT NULL COMMENT 'Consumer Key for the external tool',
-  `shared_secret` varchar(255) NOT NULL COMMENT 'Shared Secret for the external tool',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `NAME_UNIQUE` (`name`),
-  UNIQUE KEY `CONSUMER_KEY_UNIQUE` (`consumer_key`),
-  UNIQUE KEY `SHARED_SECRET_UNIQUE` (`shared_secret`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COMMENT='Holds External Tool Configuration'$$
-
-delimiter $$
-
 CREATE TABLE `jar` (
   `jar_id` int(11) NOT NULL AUTO_INCREMENT COMMENT 'Unique ID',
   `assignment_id` int(11) NOT NULL COMMENT 'Assignment to which this jar belong to',
@@ -67,4 +68,3 @@ CREATE TABLE `jar` (
   KEY `FK_ASSIGNMENT_ID` (`assignment_id`),
   CONSTRAINT `FK_ASSIGNMENT_ID` FOREIGN KEY (`assignment_id`) REFERENCES `assignment` (`assignment_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8 COMMENT='Holds Jars for a given Assignment'$$
-

@@ -2,10 +2,14 @@ package edu.sjsu.courseware.dao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 
+import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.sql.DataSource;
 
@@ -28,6 +32,7 @@ public class AssignmentDAO {
     private Logger logger = LoggerFactory.getLogger(AssignmentDAO.class);
 
     private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    
     private RowMapper<Assignment> assignmentRowMapper = new RowMapper<Assignment>() {
         public Assignment mapRow(ResultSet rs, int rowNum) throws SQLException {
             Assignment assignment = new Assignment();
@@ -52,9 +57,32 @@ public class AssignmentDAO {
         }
     };
     
+    private ConcurrentSkipListSet<String> assignments = new ConcurrentSkipListSet<String>();
+    
     @Inject
-    public void init(DataSource dataSource) {
+    DataSource dataSource;
+
+    @PostConstruct
+    public void init() {
        namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
+       assignments.addAll(getAllAssignmentNames());
+    }
+
+    public Set<String> getAssignmentNamesStartingWith(String assignmentName) {
+        return assignments.tailSet(assignmentName);
+    }
+
+    private Collection<? extends String> getAllAssignmentNames() {
+        String sql = "SELECT "+
+                "assignment_name " +
+             "FROM " +
+                "assignment";
+
+        return namedParameterJdbcTemplate.query(sql, new RowMapper<String>() {
+            public String mapRow(ResultSet rs, int rowNum) throws SQLException {
+                return rs.getString("assignment_name");
+            }
+        });
     }
 
     public boolean isAssignmentExist(String assignmentLtiId, String courseLtiId) {
@@ -141,6 +169,7 @@ public class AssignmentDAO {
         
         try {
             namedParameterJdbcTemplate.update(sql, params, keyHolder);
+            assignments.add(assignment.getName());
             return getAssignment(keyHolder.getKey().longValue());
         } catch (DuplicateKeyException dke) {
             logger.debug("Race condition in insert anyway we are safe.");

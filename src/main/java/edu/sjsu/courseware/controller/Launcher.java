@@ -147,12 +147,15 @@ public class Launcher {
 
     private Assignment toAssignment(ExternalTool externalTool, Course course, HttpServletRequest request) {
         Assignment assignment = new Assignment();
-        
+
         assignment.setCourseId(course.getId());
         assignment.setExternalToolId(externalTool.getId());
+        
         assignment.setCanvasId(request.getParameter(ASSIGNMENT_ID));
-        assignment.setCanvasName(request.getParameter(ASSIGNMENT_NAME));
         assignment.setCanvasLtiId(request.getParameter(ASSIGNMENT_LTI_ID));
+        
+        assignment.setName(request.getParameter(ASSIGNMENT_NAME));
+        assignment.setCanvasName(request.getParameter(ASSIGNMENT_NAME));
         assignment.setCanvasExternalToolName(request.getParameter(ASSIGNMENT_EXTERNAL_TOOL_NAME));
 
         assignment.setCanvasUserId(request.getParameter(USER_ID));

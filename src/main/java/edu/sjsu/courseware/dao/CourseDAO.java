@@ -2,10 +2,14 @@ package edu.sjsu.courseware.dao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 
+import javax.annotation.PostConstruct;
 import javax.inject.Inject;
 import javax.sql.DataSource;
 
@@ -25,11 +29,33 @@ public class CourseDAO {
     private Logger logger = LoggerFactory.getLogger(CourseDAO.class);
 
     private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-   
+    private ConcurrentSkipListSet<String> courses = new ConcurrentSkipListSet<String>();
+
     @Inject
-    public void init(DataSource dataSource) {
+    DataSource dataSource;
+    
+    @PostConstruct
+    public void init() {
         namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
-    }
+        courses.addAll(getAllCourseNames());
+     }
+
+     public Set<String> getCourseNamesStartingWith(String courseName) {
+         return courses.tailSet(courseName).headSet(courseName + "Z");
+     }
+
+     private Collection<? extends String> getAllCourseNames() {
+         String sql = "SELECT "+
+                 "canvas_lti_course_name " +
+              "FROM " +
+                 "course";
+
+         return namedParameterJdbcTemplate.query(sql, new RowMapper<String>() {
+             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
+                 return rs.getString("canvas_lti_course_name");
+             }
+         });
+     }
 
     public boolean isCourseExist(String assignmentLtiId, String courseLtiId) {
         String sql = "select count(*) from course where course.canvas_lti_course_id = :courseLtiId";
@@ -61,7 +87,8 @@ public class CourseDAO {
         params.put("canvasLtiCourseName", course.getCanvasLtiCourseName());
  
         try {
-            namedParameterJdbcTemplate.update(sql, params);     
+            namedParameterJdbcTemplate.update(sql, params);
+            courses.add(course.getCanvasLtiCourseName());
             return getCourse(course.getCanvasLtiCourseId());
         } catch (DuplicateKeyException dke) {
             logger.debug("Race condition in insert anyway we are safe.");
