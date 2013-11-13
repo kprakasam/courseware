@@ -31,11 +31,14 @@ public class Home {
     @RequestMapping("search/{type}/{term}")
     @ResponseBody
     public Set<String> search(@PathVariable String type, @PathVariable String term) {
-        if ("Course".equalsIgnoreCase(type))
-            return courseDAO.getCourseNamesStartingWith(term);
+        if ("course-code".equalsIgnoreCase(type))
+            return courseDAO.getCourseIdsByCodeStartingWith(term).keySet();
+
+        if ("course-name".equalsIgnoreCase(type))
+            return courseDAO.getCourseIdsByNamesStartingWith(term).keySet();
         
-        if ("Assignment".equalsIgnoreCase(type))
-            return assignmentDao.getAssignmentNamesStartingWith(term);
+        if ("assignment-name".equalsIgnoreCase(type))
+            return assignmentDao.getAssignmentIdsByNamesStartingWith(term).keySet();
          
         return Collections.emptySet();
     }

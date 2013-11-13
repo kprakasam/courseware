@@ -12,25 +12,29 @@
         $("#search-term").autocomplete({
             minLength : 2,
             source : function(request, response) {
-                var url = "search/" + $("#type")[0].value + "/" + request.term
-                console.log(request.term)
-                $.getJSON(url, request, function(data, status, xhr) {
+                var url = "search/" + $("#type")[0].value + "/" + request.term;
+                $.getJSON(url, null, function(data, status, xhr) {
                     response(data);
                 });
-            }
+            },
+            select: function( event, ui ) {
+                var url = "get/"+ $("#type")[0].value + "/" + request.term
+                $( "#result" ).load( "/test.html" );  
+            }        
         });
     });
 </script>
 </head>
 <body>
-  <form method="get" action="select">
   <div class="ui-widget">
     <select id="type" name="type">
-      <option value="course" selected>Course</option>
-      <option value="assignment">Assignment</option>
+      <option value="course-code" selected>Course Code</option>
+      <option value="course-name" selected>Course Name</option>
+      <option value="assignment-name">Assignment Name</option>
     </select>
     <label for="searchTerm">: </label> <input id="search-term" />
   </div>
-  </form>
+  <div id="search-result" class="ui-widget">
+  </div>
 </body>
 </html>

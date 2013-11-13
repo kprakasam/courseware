@@ -2,12 +2,10 @@ package edu.sjsu.courseware.dao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -18,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -29,7 +28,8 @@ public class CourseDAO {
     private Logger logger = LoggerFactory.getLogger(CourseDAO.class);
 
     private NamedParameterJdbcTemplate namedParameterJdbcTemplate;
-    private ConcurrentSkipListSet<String> courses = new ConcurrentSkipListSet<String>();
+    private ConcurrentSkipListMap<String,String> courseIdsByName;
+    private ConcurrentSkipListMap<String,String> courseIdsByCode;
 
     @Inject
     DataSource dataSource;
@@ -37,24 +37,64 @@ public class CourseDAO {
     @PostConstruct
     public void init() {
         namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
-        courses.addAll(getAllCourseNames());
+        courseIdsByName = getAllCourseIdsByName();
+        courseIdsByCode = getAllCourseIdsByCode();
      }
 
-     public Set<String> getCourseNamesStartingWith(String courseName) {
-         return courses.tailSet(courseName).headSet(courseName + "Z");
+     public Map<String, String> getCourseIdsByNamesStartingWith(String courseName) {
+         return courseIdsByName.tailMap(courseName).headMap(courseName + "z");
      }
 
-     private Collection<? extends String> getAllCourseNames() {
+     private ConcurrentSkipListMap<String,String> getAllCourseIdsByName() {
          String sql = "SELECT "+
+                 "course_id," +
                  "canvas_lti_course_name " +
               "FROM " +
                  "course";
-
-         return namedParameterJdbcTemplate.query(sql, new RowMapper<String>() {
-             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-                 return rs.getString("canvas_lti_course_name");
+ 
+         final ConcurrentSkipListMap<String,String> courseIdsByName = new ConcurrentSkipListMap<String, String>();
+         
+         namedParameterJdbcTemplate.query(sql, new RowCallbackHandler() {
+             public void processRow(ResultSet rs) throws SQLException {
+                 while (rs.next()) {
+                     String courseId = Long.toString(rs.getLong("course_id"));
+                     String courseName = rs.getString("canvas_lti_course_name");
+                     String previousCourseId = courseIdsByName.put(courseName, courseId);
+                     if (previousCourseId != null)
+                         courseIdsByName.put(courseName, previousCourseId + ":" + courseId);
+                 }
              }
          });
+         
+         return courseIdsByName;
+     }
+
+     public Map<String, String> getCourseIdsByCodeStartingWith(String couseCode) {
+         return courseIdsByCode.tailMap(couseCode).headMap(couseCode + "z");
+     }
+
+     private ConcurrentSkipListMap<String,String> getAllCourseIdsByCode() {
+         String sql = "SELECT "+
+                 "course_id," +
+                 "canvas_lti_course_code " +
+              "FROM " +
+                 "course";
+
+         final ConcurrentSkipListMap<String,String> courseIdsByCode = new ConcurrentSkipListMap<String, String>();
+
+         namedParameterJdbcTemplate.query(sql, new RowCallbackHandler() {
+             public void processRow(ResultSet rs) throws SQLException {
+                 while (rs.next()) {
+                     String courseId = Long.toString(rs.getLong("course_id"));
+                     String courseCode = rs.getString("canvas_lti_course_code");
+                     String previousCourseId = courseIdsByName.put(courseCode, courseId);
+                     if (previousCourseId != null)
+                         courseIdsByName.put(courseCode, previousCourseId + ":" + courseId);
+                 }
+             }
+         });
+         
+         return courseIdsByCode;
      }
 
     public boolean isCourseExist(String assignmentLtiId, String courseLtiId) {
@@ -88,7 +128,15 @@ public class CourseDAO {
  
         try {
             namedParameterJdbcTemplate.update(sql, params);
-            courses.add(course.getCanvasLtiCourseName());
+
+            String previousCourseId = courseIdsByName.put(course.getCanvasLtiCourseName(), Long.toString(course.getId()));
+            if (previousCourseId != null)
+                courseIdsByName.put(course.getCanvasLtiCourseName(), previousCourseId + ":" + course.getId());
+
+            previousCourseId = courseIdsByCode.put(course.getCanvasLtiCourseCode(), Long.toString(course.getId()));
+            if (previousCourseId != null)
+                courseIdsByCode.put(course.getCanvasLtiCourseCode(), previousCourseId + ":" + course.getId());
+
             return getCourse(course.getCanvasLtiCourseId());
         } catch (DuplicateKeyException dke) {
             logger.debug("Race condition in insert anyway we are safe.");

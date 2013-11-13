@@ -7,7 +7,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -26,6 +27,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import edu.sjsu.courseware.Assignment;
+import edu.sjsu.courseware.util.CaseInsensitiveComparator;
 
 @Repository
 public class AssignmentDAO {
@@ -57,7 +59,7 @@ public class AssignmentDAO {
         }
     };
     
-    private ConcurrentSkipListSet<String> assignments = new ConcurrentSkipListSet<String>();
+    private ConcurrentSkipListMap<String, String> assignmentIdsByName;
     
     @Inject
     DataSource dataSource;
@@ -65,24 +67,35 @@ public class AssignmentDAO {
     @PostConstruct
     public void init() {
        namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
-       assignments.addAll(getAllAssignmentNames());
+       assignmentIdsByName = getAllAssignmentIdsByNames();
     }
 
-    public Set<String> getAssignmentNamesStartingWith(String assignmentName) {
-        return assignments.tailSet(assignmentName);
+    public Map<String, String> getAssignmentIdsByNamesStartingWith(String assignmentName) {
+        return assignmentIdsByName.tailMap(assignmentName).headMap(assignmentName + "z");
     }
 
-    private Collection<? extends String> getAllAssignmentNames() {
+    private ConcurrentSkipListMap<String, String>  getAllAssignmentIdsByNames() {
         String sql = "SELECT "+
+                "assignment_id, " +
                 "assignment_name " +
              "FROM " +
                 "assignment";
 
-        return namedParameterJdbcTemplate.query(sql, new RowMapper<String>() {
-            public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-                return rs.getString("assignment_name");
+        final ConcurrentSkipListMap<String, String> assignmentIdsByName = new ConcurrentSkipListMap<String, String>(CaseInsensitiveComparator.INSTANCE);
+        
+        namedParameterJdbcTemplate.query(sql, new RowCallbackHandler() {
+            public void processRow(ResultSet rs) throws SQLException {
+                while (rs.next()) {
+                    String assignmentName = rs.getString("assignment_name");
+                    String assignemnId = Long.toString(rs.getLong("assignment_id"));
+                    String previousAssignmentId = assignmentIdsByName.put(assignmentName, assignemnId);
+                    if (previousAssignmentId != null)
+                        assignmentIdsByName.put(assignmentName, previousAssignmentId + ":" + assignemnId);
+                }
             }
         });
+        
+        return assignmentIdsByName;
     }
 
     public boolean isAssignmentExist(String assignmentLtiId, String courseLtiId) {
@@ -149,7 +162,7 @@ public class AssignmentDAO {
         params.addValue("canvasId", assignment.getCanvasId());
         params.addValue("canvasLtiId", assignment.getCanvasLtiId());
 
-        params.addValue("name", assignment.getCanvasName());
+        params.addValue("name", assignment.getName());
         params.addValue("canvasName", assignment.getCanvasName());
         params.addValue("externalToolName", assignment.getCanvasExternalToolName());
         
@@ -169,7 +182,11 @@ public class AssignmentDAO {
         
         try {
             namedParameterJdbcTemplate.update(sql, params, keyHolder);
-            assignments.add(assignment.getName());
+
+            String previousAssignmentId = assignmentIdsByName.put(assignment.getName(), Long.toString(assignment.getId()));
+            if (previousAssignmentId != null)
+                assignmentIdsByName.put(assignment.getName(), previousAssignmentId + ":" + assignment.getId());
+
             return getAssignment(keyHolder.getKey().longValue());
         } catch (DuplicateKeyException dke) {
             logger.debug("Race condition in insert anyway we are safe.");
