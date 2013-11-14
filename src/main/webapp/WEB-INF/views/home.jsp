@@ -24,6 +24,8 @@
   </div>
 
   <div style="display:inline-block; height:20px"></div>
+
+  <div id="no-assignments-found"><p>No Assignments Found</p></div>
   
   <div id="assignments-grid-panel">
     <table id="assignments-grid"></table> 
@@ -31,17 +33,29 @@
   </div>
 
   <div style="display:inline-block; height:20px"></div>
+
+  <div id="no-jars-found"><p>No Jars Found</p></div>
   
-  <div id="jar-file-grid-panel">
-    <table id="jar-file-grid"></table> 
-    <div id="jar-file-grid-pager"></div>
+  <div id="jars-grid-panel">
+    <table id="jars-grid"></table> 
+    <div id="jars-grid-pager"></div>
   </div>
   
   <script>
 	$(function() {
+	    var lastSelectedJarId = -1;
+	    var lastSelectedAssignmentId = -1;
+
 	    var isUploadInProgress = false;
-	    $( "#jar-file-grid-panel" ).hide();
+
+	    var isJarsGridHidden = true;
+	    var isAssignmentsGridHidden = true;
+	    
+	    $( "#jars-grid-panel" ).hide();
 	    $( "#assignments-grid-panel" ).hide();
+	    
+	    $( "#no-jars-found" ).hide();
+	    $( "#no-assignments-found" ).hide();
 	    
 		$( "#search-term" ).autocomplete({
 			minLength : 2,
@@ -57,42 +71,15 @@
 			},
 
 			select: function( event, ui ) {
-  			  	if (isUploadInProgress)
-  			  	    return;
-  			    
-  			  	$( "#assignments-grid-panel" ).show();
-  			  	var url = "fetch/"+ $("#type")[0].value + "/" + encodeURIComponent(ui.item.value);
-				jQuery( "#assignments-grid" ).jqGrid('setGridParam',{url: url}).trigger("reloadGrid");
+			    refreshAssignmentsGrid(ui.item.value);
 			}        
 		});
           
 		$( "#search-term" ).keydown(function( event ) {
-			if (isUploadInProgress)
-  				return;
-			
-			if ( event.which == 13 ) {
-				var url = "fetch/"+ $("#type")[0].value + "/" + encodeURIComponent(this.value);
-				jQuery( "#assignments-grid" ).jqGrid('setGridParam',{url: url}).trigger("reloadGrid");
-			}
+			if ( event.which == 13 )
+			    refreshAssignmentsGrid(this.value);
 		});
 		
-		function displayAssignmentsGrid(assignments) {
-		    // hide the table
-	    	$( "#assignments-grid-panel" ).hide();
-		    
-		    // Delete any existing rows
-		    
-		    jQuery("#delgrid").jqGrid('delGridRow',gr,{reloadAfterSubmit:false});
-			
-		    //populate new data
-		    for(var i=0; i<assignments.length; i++)
-				jQuery( "#assignments-grid" ).jqGrid( 'addRowData', i+1, assignments[i] );
-		    
-		    $( "#assignments-grid-panel" ).show();
-		};
-		
-	    var lastSelectedAssignmentId = -1;
-	    
 		jQuery( "#assignments-grid" ).jqGrid( {
 			datatype: "json",
 			width: 900, 
@@ -108,10 +95,15 @@
 			],
 			onSelectRow: function(id) { 
 				if(id && id !== lastSelectedAssignmentId) {
-					var ret = jQuery( "#assignments-grid" ).jqGrid('getRowData',id);
-					console.log("id="+ret.id+" couse code=" + ret.courseCode + "...");
+				    refreshJarsGrid(id);
 					lastSelectedAssignmentId=id; 
-				} 
+				}
+			},
+			gridComplete: function(d) {
+			    if ( jQuery('#assignments-grid').jqGrid('getGridParam','records') == 0 )
+			        hideAssignmentsGrid(); 
+			    else
+			        showAssignmentsGrid();
 			},
 			rowNum:10,
 			rowList: [10,20,30],
@@ -119,11 +111,35 @@
 			caption: "Assignments"}
 		).navGrid("#assignments-grid-pager",{ edit:false, add:false, del:false} ); 
 
-	    var lastSelectedJarId = -1;
-	    
-		jQuery( "#jar-file-grid" ).jqGrid( {
-			datatype: "local",
-			width: 900, 
+		function refreshAssignmentsGrid(term) {
+		  	if (isUploadInProgress)
+				return;
+  			    
+			var url = "fetch-assignments/"+ $("#type")[0].value + "/" + encodeURIComponent(term);
+			jQuery( "#assignments-grid" ).jqGrid('setGridParam',{url: url}).trigger("reloadGrid");			
+		};
+		
+		function hideAssignmentsGrid() {
+			if (!isAssignmentsGridHidden)
+				return;
+
+			isAssignmentsGridHidden = true;
+		    $( "#assignments-grid-panel" ).hide();
+		    $( "#no-assignments-found" ).show();
+		} 
+		
+		function showAssignmentsGrid() {
+			if (!isAssignmentsGridHidden)
+				return;
+
+			isAssignmentsGridHidden = false;
+		    $( "#no-assignments-found" ).hide();
+		    $( "#assignments-grid-panel" ).show();
+		}
+
+		jQuery( "#jars-grid" ).jqGrid( {
+			datatype: "json",
+			width: 600, 
 			height: 'auto',
 			colNames:['Jar Id', 'Assignment Id','Jar Name', 'Main Class Fully Qualified Name'],
 			colModel:[ 
@@ -134,16 +150,45 @@
 			],
 			onSelectRow: function(id) { 
 				if(id && id !== lastSelectedJarId) {
-					var ret = jQuery( "#jar-file-grid" ).jqGrid('getRowData',id);
+					var ret = jQuery( "#jars-grid" ).jqGrid('getRowData',id);
 					console.log("id="+ret.id+" Jar Name=" + ret.name + "...");
 					lastSelectedJarId=id; 
 				} 
 			},
+			gridComplete: function(d) {
+			    if ( jQuery('#jars-grid').jqGrid('getGridParam','records') == 0 )
+			        hideJarsGrid(); 
+			    else
+			        showJarsGrid();
+			},
 			rowNum:10,
 			rowList: [10,20,30],
-			pager: "#jar-file-grid-pager",
+			pager: "#jars-grid-pager",
 			caption: "Jars"}
-		).navGrid("#jar-file-grid-pager",{ edit:false, add:false, del:false} ); 
+		).navGrid("#jars-grid-pager",{ edit:false, add:false, del:false} );
+		
+		function refreshJarsGrid(assignmentId) {
+			var url = "fetch-jars/"+ encodeURIComponent(assignmentId);
+			jQuery( "#jars-grid" ).jqGrid('setGridParam',{url: url}).trigger("reloadGrid");			
+		};
+		
+		function hideJarsGrid() {
+			if (isJarsGridHidden)
+				return;
+
+			isJarsGridHidden = true;
+		    $( "#jars-grid-panel" ).hide();
+		    $( "#no-jarss-found" ).show();
+		} 
+		
+		function showJarsGrid() {
+			if (!isJaraGridHidden)
+				return;
+
+			isJarsGridHidden = false;
+		    $( "#no-Jars-found" ).hide();
+		    $( "#jars-grid-panel" ).show();
+		}
 	});
   </script>
 </body>
