@@ -1,6 +1,7 @@
 package edu.sjsu.courseware.controller;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import javax.inject.Inject;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
 
+import edu.sjsu.courseware.AssignmentCourse;
 import edu.sjsu.courseware.dao.AssignmentDAO;
 import edu.sjsu.courseware.dao.CourseDAO;
 
@@ -22,7 +24,6 @@ public class Home {
     @Inject
     AssignmentDAO assignmentDao;
     
-
     @RequestMapping("home")
     public String home(ModelAndView model) {
         return "home";
@@ -43,21 +44,55 @@ public class Home {
         return Collections.emptySet();
     }
 
-    @RequestMapping("fetch/{type}/{term}")
-    public ModelAndView fetch(@PathVariable String type, @PathVariable String term, ModelAndView mv) {
-        mv.setViewName("assignments-grid");
-        mv.addObject("assignments", Collections.emptyList());
-
-        if ("course-code".equalsIgnoreCase(type))
-           return mv.addObject("assignments", courseDAO.getAssignmentsByCourseCode(term));            
+    @RequestMapping(value="fetch/{type}/{term}", produces="application/json")
+    @ResponseBody
+    public AssignmentsJson fetch(@PathVariable String type, @PathVariable String term) {
+         if ("course-code".equalsIgnoreCase(type))
+           return toJsonObject(courseDAO.getAssignmentsByCourseCode(term));            
 
         if ("course-name".equalsIgnoreCase(type))
-            return mv.addObject("assignments", courseDAO.getAssignmentsByCourseName(term));            
+            return toJsonObject(courseDAO.getAssignmentsByCourseName(term));            
         
         if ("assignment-name".equalsIgnoreCase(type))
-            return mv.addObject("assignments", assignmentDao.getAssignmentsByName(term));            
+            return toJsonObject(assignmentDao.getAssignmentsByName(term));            
          
-        return mv;
+        return new AssignmentsJson();
     }
 
+    private AssignmentsJson toJsonObject(List<AssignmentCourse> assignments) {
+        AssignmentsJson assignmentsJson = new AssignmentsJson();
+        
+        if (assignments == null || assignments.isEmpty())
+            return assignmentsJson;
+        
+        assignmentsJson.total = String.valueOf((assignments.size() % 10 == 0) ?  assignments.size() / 10 : assignments.size() / 10 + 1);
+        assignmentsJson.records =  String.valueOf(assignments.size());
+        assignmentsJson.rows = new AssignmentJson[assignments.size()];
+        
+        for (AssignmentCourse assignmentCourse : assignments) {
+            AssignmentJson assignmentJson = new AssignmentJson();
+            assignmentJson.id = String.valueOf(assignmentCourse.getId());
+            assignmentJson.cell = new String[5];
+            assignmentJson.cell[0] = assignmentCourse.getCourseCode();
+            assignmentJson.cell[1] = assignmentCourse.getCourseName();
+            assignmentJson.cell[2] = assignmentCourse.getName();
+            assignmentJson.cell[3] = assignmentCourse.getExternalTool();
+            assignmentJson.cell[4] = assignmentCourse.getCanvasInstance();
+                    
+        }
+        
+        return assignmentsJson;
+    }
+
+    static public class AssignmentJson {
+        String id;
+        String[] cell;
+    }
+    
+    static  public class AssignmentsJson {
+        String page = "0";
+        String total = "0";
+        String records = "0";
+        AssignmentJson[] rows = new AssignmentJson[]{};
+    }
 }
