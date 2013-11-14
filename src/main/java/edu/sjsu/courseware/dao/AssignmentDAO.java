@@ -2,11 +2,10 @@ package edu.sjsu.courseware.dao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 import javax.annotation.PostConstruct;
@@ -27,7 +26,9 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import edu.sjsu.courseware.Assignment;
+import edu.sjsu.courseware.AssignmentCourse;
 import edu.sjsu.courseware.util.CaseInsensitiveComparator;
+import static edu.sjsu.courseware.util.Utils.toLongs;
 
 @Repository
 public class AssignmentDAO {
@@ -76,7 +77,7 @@ public class AssignmentDAO {
 
     private ConcurrentSkipListMap<String, String>  getAllAssignmentIdsByNames() {
         String sql = "SELECT "+
-                "assignment_id, " +
+                "assignment_id," +
                 "assignment_name " +
              "FROM " +
                 "assignment";
@@ -85,13 +86,11 @@ public class AssignmentDAO {
         
         namedParameterJdbcTemplate.query(sql, new RowCallbackHandler() {
             public void processRow(ResultSet rs) throws SQLException {
-                while (rs.next()) {
-                    String assignmentName = rs.getString("assignment_name");
-                    String assignemnId = Long.toString(rs.getLong("assignment_id"));
-                    String previousAssignmentId = assignmentIdsByName.put(assignmentName, assignemnId);
-                    if (previousAssignmentId != null)
-                        assignmentIdsByName.put(assignmentName, previousAssignmentId + ":" + assignemnId);
-                }
+                String assignmentName = rs.getString("assignment_name");
+                String assignemnId = Long.toString(rs.getLong("assignment_id"));
+                String previousAssignmentId = assignmentIdsByName.put(assignmentName, assignemnId);
+                if (previousAssignmentId != null)
+                    assignmentIdsByName.put(assignmentName, previousAssignmentId + ":" + assignemnId);
             }
         });
         
@@ -102,10 +101,14 @@ public class AssignmentDAO {
         String sql = "SELECT "+
                         "COUNT(*) " +
                      "FROM " +
-                        "course, " +
+                        "course," +
                         "assignment " +
                       "WHERE " +
-                        "course.couse_id = assignment.course_id AND canvas_lti_assignment_id = :assignmentLtiId' AND course.canvas_lti_course_id = courseLtiId";
+                        "course.couse_id = assignment.course_id " +
+                      "AND " +
+                        "assignment.canvas_lti_assignment_id = :assignmentLtiId " +
+                      "AND " +
+                        "course.canvas_lti_course_id = courseLtiId";
         
         Map<String, String> params = new HashMap<String, String>();
         params.put("assignmentLtiId", assignmentLtiId);
@@ -261,4 +264,50 @@ public class AssignmentDAO {
             return namedParameterJdbcTemplate.queryForObject(sql, params, assignmentRowMapper);
         } catch (EmptyResultDataAccessException ex) { return null;}
     }
+    
+    public List<AssignmentCourse> getAssignmentsByName(String term) {
+        String assignmentIds = assignmentIdsByName.get(term);
+        
+        if (assignmentIds == null || assignmentIds.isEmpty())
+            return Collections.emptyList();
+        
+        return getAssignmentsByIds(toLongs(assignmentIds));
+    }
+
+    public List<AssignmentCourse> getAssignmentsByIds(List<Long> assignmentIds) {
+        if (assignmentIds == null || assignmentIds.isEmpty())
+            return Collections.emptyList();
+
+        String sql = "SELECT "+
+                "assignment.assignment_id," +
+                "assignment.assignment_name," +
+                "assignment.canvas_external_tool_name," +
+                "assignment.canvas_instance_name, " +
+                "course.canvas_lti_course_code," +
+                "course.canvas_lti_course_name " +
+             "FROM " +
+                "course," +
+                "assignment " +
+              "WHERE " +
+                "course.course_id = assignment.course_id " +
+              "AND " + 
+                  "assignment.assignment_id in (:assignmentIds)";
+              
+
+        Map<String, List<Long>> params = Collections.singletonMap("assignmentIds", assignmentIds);
+        return namedParameterJdbcTemplate.query(sql, params, new RowMapper<AssignmentCourse>() {
+
+            public AssignmentCourse mapRow(ResultSet rs, int rowNum) throws SQLException {
+                AssignmentCourse assignmentCourse = new AssignmentCourse();
+                assignmentCourse.setId(rs.getLong("assignment_id"));
+                assignmentCourse.setName(rs.getString("assignment_name"));
+                assignmentCourse.setExternalTool(rs.getString("canvas_external_tool_name"));
+                assignmentCourse.setCanvasInstance(rs.getString("canvas_instance_name"));
+                assignmentCourse.setCourseCode(rs.getString("canvas_lti_course_code"));
+                assignmentCourse.setCourseName(rs.getString("canvas_lti_course_name"));
+                return assignmentCourse;
+            }
+        });
+    }
+
 }

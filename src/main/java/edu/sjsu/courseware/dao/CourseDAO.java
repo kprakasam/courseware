@@ -1,9 +1,12 @@
 package edu.sjsu.courseware.dao;
 
+import static edu.sjsu.courseware.util.Utils.toLongs;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -21,7 +24,9 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import edu.sjsu.courseware.AssignmentCourse;
 import edu.sjsu.courseware.Course;
+import edu.sjsu.courseware.util.CaseInsensitiveComparator;
 
 @Repository
 public class CourseDAO {
@@ -33,7 +38,7 @@ public class CourseDAO {
 
     @Inject
     DataSource dataSource;
-    
+
     @PostConstruct
     public void init() {
         namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
@@ -52,17 +57,15 @@ public class CourseDAO {
               "FROM " +
                  "course";
  
-         final ConcurrentSkipListMap<String,String> courseIdsByName = new ConcurrentSkipListMap<String, String>();
+         final ConcurrentSkipListMap<String,String> courseIdsByName = new ConcurrentSkipListMap<String, String>(CaseInsensitiveComparator.INSTANCE);
          
          namedParameterJdbcTemplate.query(sql, new RowCallbackHandler() {
              public void processRow(ResultSet rs) throws SQLException {
-                 while (rs.next()) {
-                     String courseId = Long.toString(rs.getLong("course_id"));
-                     String courseName = rs.getString("canvas_lti_course_name");
-                     String previousCourseId = courseIdsByName.put(courseName, courseId);
-                     if (previousCourseId != null)
-                         courseIdsByName.put(courseName, previousCourseId + ":" + courseId);
-                 }
+                 String courseId = Long.toString(rs.getLong("course_id"));
+                 String courseName = rs.getString("canvas_lti_course_name");
+                 String previousCourseId = courseIdsByName.put(courseName, courseId);
+                 if (previousCourseId != null)
+                     courseIdsByName.put(courseName, previousCourseId + ":" + courseId);
              }
          });
          
@@ -80,17 +83,15 @@ public class CourseDAO {
               "FROM " +
                  "course";
 
-         final ConcurrentSkipListMap<String,String> courseIdsByCode = new ConcurrentSkipListMap<String, String>();
+         final ConcurrentSkipListMap<String,String> courseIdsByCode = new ConcurrentSkipListMap<String, String>(CaseInsensitiveComparator.INSTANCE);
 
          namedParameterJdbcTemplate.query(sql, new RowCallbackHandler() {
              public void processRow(ResultSet rs) throws SQLException {
-                 while (rs.next()) {
-                     String courseId = Long.toString(rs.getLong("course_id"));
-                     String courseCode = rs.getString("canvas_lti_course_code");
-                     String previousCourseId = courseIdsByName.put(courseCode, courseId);
-                     if (previousCourseId != null)
-                         courseIdsByName.put(courseCode, previousCourseId + ":" + courseId);
-                 }
+                 String courseId = Long.toString(rs.getLong("course_id"));
+                 String courseCode = rs.getString("canvas_lti_course_code");
+                 String previousCourseId = courseIdsByCode.put(courseCode, courseId);
+                 if (previousCourseId != null)
+                     courseIdsByCode.put(courseCode, previousCourseId + ":" + courseId);
              }
          });
          
@@ -175,5 +176,60 @@ public class CourseDAO {
                 }});
         } catch (EmptyResultDataAccessException ex) { return null;}
 
+    }
+
+    public List<AssignmentCourse>getAssignmentsByCourseCode(String term) {
+        String courseIds = courseIdsByCode.get(term);
+        
+        if (courseIds == null || courseIds.isEmpty())
+            return Collections.emptyList();
+        
+        return getAssignmentsByCourseIds(toLongs(courseIds));
+    }
+
+    public List<AssignmentCourse> getAssignmentsByCourseName(String term) {
+        String courseIds = courseIdsByName.get(term);
+        
+        if (courseIds == null || courseIds.isEmpty())
+            return Collections.emptyList();
+        
+        return getAssignmentsByCourseIds(toLongs(courseIds));
+    }
+
+    public List<AssignmentCourse> getAssignmentsByCourseIds(List<Long> courseIds) {
+        if (courseIds == null || courseIds.isEmpty())
+            return Collections.emptyList();
+
+        String sql = "SELECT "+
+                "assignment.assignment_id," +
+                "assignment.assignment_name," +
+                "assignment.canvas_external_tool_name," +
+                "assignment.canvas_instance_name, " +
+                "course.canvas_lti_course_code," +
+                "course.canvas_lti_course_name " +
+             "FROM " +
+                "course," +
+                "assignment " +
+              "WHERE " +
+                "course.course_id = assignment.course_id " +
+              "AND " + 
+                  "course.course_id in (:courseIds)";
+              
+
+        Map<String, List<Long>> params = Collections.singletonMap("courseIds", courseIds);
+        
+        return namedParameterJdbcTemplate.query(sql, params, new RowMapper<AssignmentCourse>() {
+
+            public AssignmentCourse mapRow(ResultSet rs, int rowNum) throws SQLException {
+                AssignmentCourse assignmentCourse = new AssignmentCourse();
+                assignmentCourse.setId(rs.getLong("assignment_id"));
+                assignmentCourse.setName(rs.getString("assignment_name"));
+                assignmentCourse.setExternalTool(rs.getString("canvas_external_tool_name"));
+                assignmentCourse.setCanvasInstance(rs.getString("canvas_instance_name"));
+                assignmentCourse.setCourseCode(rs.getString("canvas_lti_course_code"));
+                assignmentCourse.setCourseName(rs.getString("canvas_lti_course_name"));
+                return assignmentCourse;
+            }
+        });
     }
 }

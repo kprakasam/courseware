@@ -42,5 +42,22 @@ public class Home {
          
         return Collections.emptySet();
     }
-    
+
+    @RequestMapping("fetch/{type}/{term}")
+    public ModelAndView fetch(@PathVariable String type, @PathVariable String term, ModelAndView mv) {
+        mv.setViewName("assignments-grid");
+        mv.addObject("assignments", Collections.emptyList());
+
+        if ("course-code".equalsIgnoreCase(type))
+           return mv.addObject("assignments", courseDAO.getAssignmentsByCourseCode(term));            
+
+        if ("course-name".equalsIgnoreCase(type))
+            return mv.addObject("assignments", courseDAO.getAssignmentsByCourseName(term));            
+        
+        if ("assignment-name".equalsIgnoreCase(type))
+            return mv.addObject("assignments", assignmentDao.getAssignmentsByName(term));            
+         
+        return mv;
+    }
+
 }
