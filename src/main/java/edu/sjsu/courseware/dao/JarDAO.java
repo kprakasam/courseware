@@ -58,7 +58,7 @@ public class JarDAO {
         });
     }
 
-    public byte[] getJarFile(long assignmentId, String jarName) {
+    public byte[] getFile(long assignmentId, String jarName) {
         String sql = "SELECT " +
                         "jar_file " +
                      "FROM " +
@@ -107,17 +107,17 @@ public class JarDAO {
 
         try {
             namedParameterJdbcTemplate.update(sql, params);
-            return getJar(jar.getAssignmentId(), jar.getName());
+            return get(jar.getAssignmentId(), jar.getName());
         } catch (DuplicateKeyException dke) {
             logger.debug("Race condition in insert anyway we are safe.");
-            return getJar(jar.getAssignmentId(), jar.getName());
+            return get(jar.getAssignmentId(), jar.getName());
         } catch (DataAccessException dae) {
             logger.error("Exception when inserting assignment record" + dae);
             return null;
         } 
     }
 
-    public Jar getJar(long assignmentId, String jarName) {
+    public Jar get(long assignmentId, String jarName) {
         String sql = "SELECT " +
                 "jar_id," +
                 "assignment_id," +
@@ -144,5 +144,17 @@ public class JarDAO {
                 }
             });
         } catch (EmptyResultDataAccessException ex) { return null;}
+    }
+
+    public boolean delete(long jarId) {
+        String sql = "DELETE  " +
+             "FROM " +
+                "jar "+
+             "WHERE " +
+                "jar_id = :jarId";
+
+        Map<String, Long> params = Collections.singletonMap("jarId", jarId);
+
+        return namedParameterJdbcTemplate.update(sql, params) != 0;
     }
 }

@@ -50,12 +50,11 @@ public class JarsGridData {
             Row row = new Row();
             row.id = String.valueOf(jar.getId());
             
-            row.cell = new String[5];
+            row.cell = new String[4];
             row.cell[0] = String.valueOf(jar.getId());
             row.cell[1] = String.valueOf(jar.getAssignmentId());
             row.cell[2] = jar.getName();
             row.cell[3] = jar.getMainClass();
-            row.cell[4] = "delete"; 
             jarssGridData.rows[i++] = row;
         }
         

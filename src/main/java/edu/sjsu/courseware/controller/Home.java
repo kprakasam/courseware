@@ -68,4 +68,11 @@ public class Home {
     public JarsGridData fetchJars(@PathVariable long id) {
         return JarsGridData.toJarsGridData(jarDAO.getJars(id));
     }
+    
+    @RequestMapping(value="delete-jar/{id}", produces="application/json")
+    @ResponseBody
+    public Boolean deleteJar(@PathVariable long id) {
+        return jarDAO.delete(id);  
+    }
+       
 }

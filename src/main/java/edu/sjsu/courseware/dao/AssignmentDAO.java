@@ -1,5 +1,7 @@
 package edu.sjsu.courseware.dao;
 
+import static edu.sjsu.courseware.util.Utils.toLongs;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -28,7 +30,6 @@ import org.springframework.stereotype.Repository;
 import edu.sjsu.courseware.Assignment;
 import edu.sjsu.courseware.AssignmentCourse;
 import edu.sjsu.courseware.util.CaseInsensitiveComparator;
-import static edu.sjsu.courseware.util.Utils.toLongs;
 
 @Repository
 public class AssignmentDAO {

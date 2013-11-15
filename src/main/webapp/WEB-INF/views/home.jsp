@@ -6,7 +6,14 @@
   <title>Courseware Home</title>
 
   <style>
-   .ui-widget { font-size: 0.8em;}
+    .ui-widget { 
+      font-size: 0.8em;
+    }
+    
+   .ui-th-column, .ui-jqgrid .ui-jqgrid-htable th.ui-th-column {
+      text-align: left;
+      white-space: nowrap;
+    }
   </style>    
 
   <link rel="stylesheet" href="resources/jquery-ui-1.10.3/css/jquery-ui-1.10.3.custom.min.css"></link>
@@ -14,7 +21,9 @@
   <script src="resources/jquery-ui-1.10.3/js/jquery-1.9.1.js"></script>
   <script src="resources/jquery-ui-1.10.3/js/jquery-ui-1.10.3.custom.min.js"></script>
   <script type="text/javascript" src="resources/jqgrid-4.5.4/js/i18n/grid.locale-en.js"></script>
-  <script type="text/javascript" src="resources/jqgrid-4.5.4/js/jquery.jqGrid.min.js"></script>  
+  <script type="text/javascript" src="resources/jqgrid-4.5.4/js/jquery.jqGrid.min.js"></script>
+  <script type="text/javascript" src="resources/jQuery-File-Upload-9.2.1/js/jquery.iframe-transport.js"></script>
+  <script type="text/javascript" src="resources/jQuery-File-Upload-9.2.1/js/jquery.fileupload.js"></script>
 </head>
 
 <body>
@@ -27,7 +36,11 @@
     <label for="search-term">: </label> <input id="search-term" class="ui-autocomplete-input"/>
   </div>
 
-  <div id="dialog"><p align="center"></p></div>
+  <div id="info-dialog"><p align="center"></p></div>
+
+  <div id="confirm-dialog" title="Delete Jar File?">
+    <p><span class="ui-icon ui-icon-alert" style="float: left; margin: 0 7px 20px 0;"></span>message</p>
+  </div>
 
   <div style="display:inline-block; height:20px"></div>
 
@@ -41,12 +54,7 @@
   <div id="jars-grid-panel">
     <table id="jars-grid"></table> 
     <div id="jars-grid-pager"></div>
-    <div id="jar-upload-pane">
-      <span class="fileinput-button">
-        <span>Add files...</span>
-          <input type="file" name="files[]" multiple>
-        </span>
-    </div>
+    <input id="jar-file-selector" type="file" name="files[]" multiple>
   </div>
   
   <script>
@@ -62,8 +70,11 @@
 	    var searchType = $( "#search-type" );
 	    var searchTerm = $( "#search-term" );
 	    
-	    var dialogBox = $( "#dialog" );
-	    var dialogBoxContent = $( "#dialog > p" );
+	    var info = $( "#info-dialog" );
+	    var infoDialogContent = $( "#info-dialog > p" );
+
+	    var confirm = $( "#confirm-dialog" );
+	    var confirmDialogContent = $( "#confirm-dialog > p" );
 
 	    var jarsGrid = $( "#jars-grid" );
 	    var jarsGridPanel = $( "#jars-grid-panel" );
@@ -71,15 +82,15 @@
 	    var assignmentsGrid = $( "#assignments-grid" );
 	    var assignmentsGridPanel = $( "#assignments-grid-panel" );
 	    
-	    var fileUpload = $('#fileupload');
+	    var fileUpload = $('#jar-file-selector');
 
 	    var progressBars = [];
-	    var deleteButtons = [];
 
+	    fileUpload.hide();
 	    jarsGridPanel.hide();
 	    assignmentsGridPanel.hide();
 
-	    dialogBox.dialog({
+	    info.dialog({
 			width: 500,
 			modal: true,
 			autoOpen: false,
@@ -92,7 +103,29 @@
 	        	duration: 1000
 	        }
 		});
-	    
+
+	    confirm.dialog({
+	        width: 500,
+			modal: true,
+			autoOpen: false,
+			resizable: false,
+			buttons: {
+				"Delete": function() {					
+				    var id = $( this ).data("id");
+				    $( this ).removeData("id");
+					$( this ).dialog( "close" );
+					
+					$.getJSON("delete-jar/" + encodeURIComponent(id), null, function( data, status, xhr ) {
+	                     removeJarRecord(id);
+					});
+				},
+			 
+				Cancel: function() {
+			 		$( this ).dialog( "close" );
+			 	}
+			}
+		});
+
 		searchTerm.autocomplete({
 			minLength : 2,
   			source : function( request, response ) {
@@ -118,16 +151,15 @@
 		
 		assignmentsGrid.jqGrid( {
 			datatype: "json",
-			width: 900, 
 			height: 'auto',
 			colNames:['id', 'Course Code','Course Name', 'Assignment Name', 'External Tool','Canvas Instance'],
 			colModel:[ 
-				{name:'id',index:'id', hidden:true, width:5,},
-				{name:'courseCode',index:'courseCode', width:30},
-				{name:'courseName',index:'courseName', width:80},
-				{name:'assignmentName',index:'assignmentName', width:80},
-				{name:'externalTool',index:'externalTool', width:50},
-				{name:'canvasInstance',index:'canvasInstance', width:50}
+				{name:'id',index:'id', hidden:true, width:0,},
+				{name:'courseCode',index:'courseCode', width:100},
+				{name:'courseName',index:'courseName', width:200},
+				{name:'assignmentName',index:'assignmentName', width:300},
+				{name:'externalTool',index:'externalTool', width:200},
+				{name:'canvasInstance',index:'canvasInstance', width:200}
 			],
 			onSelectRow: function(id) { 
 				if(id && id !== lastSelectedAssignmentId) {
@@ -135,7 +167,7 @@
 					lastSelectedAssignmentId=id; 
 				}
 			},
-			gridComplete: function(d) {
+			gridComplete: function() {
 			    if ( jQuery('#assignments-grid').jqGrid('getGridParam','records') == 0 ) {
 			        hideAssignmentsGrid();
 				    showNoAssignmentsFound();
@@ -147,7 +179,7 @@
 			rowList: [10,20,30],
 			pager: "#assignments-grid-pager",
 			caption: "Assignments"}
-		).navGrid("#assignments-grid-pager",{ edit:false, add:false, del:false} ); 
+		).navGrid("#assignments-grid-pager",{ edit:false, add:false, del:false, refresh:false} ); 
 
 		function refreshAssignmentsGrid(term) {
 		  	if (isUploadInProgress)
@@ -175,22 +207,20 @@
 
 		function showNoAssignmentsFound() {
 		    var content = "No assignments found for " + $("option:selected", searchType).text() + ' ' + searchTerm.val();
-		    dialogBox.dialog( "option", "title", "No Assignments Found" );
-		    dialogBoxContent.text(content);
-		    dialogBox.dialog( "open" );
+		    info.dialog( "option", "title", "No Assignments Found" );
+		    infoDialogContent.text(content);
+		    info.dialog( "open" );
 		}
 
-		jarsGrid.jqGrid( {
+		jarsGrid.jqGrid({
 			datatype: "json",
-			width: 600, 
-			height: 'auto',
-			colNames:['Jar Id', 'Assignment Id','Jar Name', 'Main Class Fully Qualified Name', ''],
+			height: 200,
+			colNames:['', '','Jar Name', 'Fully Qualified Main Class Name'],
 			colModel:[ 
-				{name:'id',index:'id', hidden:true, width:5,},
-				{name:'assignmentId',index:'assignmentId', hidden:true, width:5,},
-				{name:'name',index:'name', width:30},
-				{name:'mainClass',index:'mainClass', width:100},
-				{name:'html', align:"center", formatter:htmlFormat, width:30}
+				{name:'id',index:'id', hidden:true, width:0},
+				{name:'assignmentId',index:'assignmentId', hidden:true, width:0},
+				{name:'name',index:'name', width:200, formatter:htmlFormat},
+				{name:'mainClass',index:'mainClass', width:300}
 			],
 			onSelectRow: function(id) { 
 				if(id && id !== lastSelectedJarId) {
@@ -199,22 +229,28 @@
 					lastSelectedJarId=id; 
 				} 
 			},
-			gridComplete: function(d) {
-			    if ( jQuery('#jars-grid').jqGrid('getGridParam','records') == 0 ) {
-			        hideJarsGrid();
-			        showNoJarssFound();
-			    } else {
-			        showJarsGrid();
-			    }
+			gridComplete: function() {
+			    showJarsGrid();
 			},
 			rowNum:10,
 			rowList: [10,20,30],
 			pager: "#jars-grid-pager",
 			caption: "Jars"}
-		).navGrid("#jars-grid-pager",{ edit:false, add:false, del:false} );
+		).navGrid("#jars-grid-pager", {
+		    add:true, 
+		    del:true, 
+		    edit:false,
+		    refresh:false,
+		    addfunc: function() {
+		        fileUpload.click(); 
+		    },
+		    delfunc: function(id) {
+		        showConfirmationDialog(id);
+		    }
+		});
 		
 		function htmlFormat( cellvalue, options, rowObject ){
-		    if (cellValue = 'delete') {		        
+		   /* if (cellValue = 'delete') {		        
 		        var deleteButtonId = 'delete-button-' + rowObject.id;
 		        deleteButtons.push(deleteButtonId);
 		        return '<button id="' + deleteButtonId + '">delete</button>';
@@ -222,14 +258,13 @@
 		        var progressBarId = 'delete-button-' + rowObject.id;
 		        deleteButtons.push(progressBarId);
 		        return '<button id="' + deleteButtonId + '">delete</button>';
-		    }
-		    
-			return '<img src="'+cellvalue+'" />';
+		    } */
+		    return cellvalue;
 		}
 		
 		function refreshJarsGrid(assignmentId) {
 			var url = "fetch-jars/"+ encodeURIComponent(assignmentId);
-			jarsGrid.jqGrid('setGridParam',{url: url}).trigger("reloadGrid");			
+			jarsGrid.jqGrid('setGridParam',{url: url}).trigger("reloadGrid");
 		}
 		
 		function hideJarsGrid() {
@@ -241,19 +276,24 @@
 		} 
 		
 		function showJarsGrid() {
-			if (!isJaraGridHidden)
+			if (!isJarsGridHidden)
 				return;
 
 			isJarsGridHidden = false;
 		    jarsGridPanel.show();
 		}
 		
-		function showNoJarssFound() {
-		    var assignmentName = assignmentsGrid.jqGrid('getRowData', assignmentsGrid.jqGrid('getGridParam','selrow')).assignmentName;
-		    var content = "No jars found for assignment " + assignmentName;
-		    dialogBox.dialog( "option", "title", "No Jars Found" );
-		    dialogBoxContent.text(content);
-		    dialogBox.dialog( "open" );
+		function showConfirmationDialog(id) {
+		    var jarName = jarsGrid.jqGrid('getRowData', id).name;
+		    var content = "Do you want to delete '" + jarName + "'. Are you sure?";
+		    confirm.dialog( "option", "width", content.length + 480);
+		    confirmDialogContent.get(0).lastChild.nodeValue = content;
+		    confirm.data("id", id);
+		    confirm.dialog( "open" );
+		}
+
+		function removeJarRecord(id) {
+			jarsGrid.jqGrid('delRowData',id);
 		}
 		
 		fileUpload.fileupload({

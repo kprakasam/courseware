@@ -23,7 +23,7 @@ public class JarServer {
     @RequestMapping("jars/{assignmentId}/{jarFile:[A-Za-z]+.jar}")
     public void  serve(@PathVariable long assignmentId, @PathVariable String jarFile, HttpServletResponse response) {
         try {
-            response.getOutputStream().write(jarDAO.getJarFile(assignmentId, jarFile));
+            response.getOutputStream().write(jarDAO.getFile(assignmentId, jarFile));
         } catch (IOException e) {
             logger.error("Error reading jarfile " + jarFile + ".jar" + e);
         }
