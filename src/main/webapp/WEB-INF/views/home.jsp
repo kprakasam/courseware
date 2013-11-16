@@ -4,10 +4,18 @@
 <head>
   <meta charset="utf-8" />
   <title>Courseware Home</title>
+  <link rel="stylesheet" href="resources/jquery-ui-1.10.3/css/cupertino/jquery-ui-1.10.3.custom.min.css"></link>
+  <link rel="stylesheet" href="resources/jqgrid-4.5.4/css/ui.jqgrid.css"></link>
+  <script src="resources/jquery-ui-1.10.3/js/jquery-1.9.1.js"></script>
+  <script src="resources/jquery-ui-1.10.3/js/jquery-ui-1.10.3.custom.min.js"></script>
+  <script type="text/javascript" src="resources/jqgrid-4.5.4/js/i18n/grid.locale-en.js"></script>
+  <script type="text/javascript" src="resources/jqgrid-4.5.4/js/jquery.jqGrid.min.js"></script>
+  <script type="text/javascript" src="resources/jQuery-File-Upload-9.2.1/js/jquery.iframe-transport.js"></script>
+  <script type="text/javascript" src="resources/jQuery-File-Upload-9.2.1/js/jquery.fileupload.js"></script>
 
   <style>
     .ui-widget { 
-      font-size: 0.8em;
+      font-size: 1em;
     }
     
    .ui-th-column, .ui-jqgrid .ui-jqgrid-htable th.ui-th-column {
@@ -16,45 +24,36 @@
     }
   </style>    
 
-  <link rel="stylesheet" href="resources/jquery-ui-1.10.3/css/jquery-ui-1.10.3.custom.min.css"></link>
-  <link rel="stylesheet" href="resources/jqgrid-4.5.4/css/ui.jqgrid.css"></link>
-  <script src="resources/jquery-ui-1.10.3/js/jquery-1.9.1.js"></script>
-  <script src="resources/jquery-ui-1.10.3/js/jquery-ui-1.10.3.custom.min.js"></script>
-  <script type="text/javascript" src="resources/jqgrid-4.5.4/js/i18n/grid.locale-en.js"></script>
-  <script type="text/javascript" src="resources/jqgrid-4.5.4/js/jquery.jqGrid.min.js"></script>
-  <script type="text/javascript" src="resources/jQuery-File-Upload-9.2.1/js/jquery.iframe-transport.js"></script>
-  <script type="text/javascript" src="resources/jQuery-File-Upload-9.2.1/js/jquery.fileupload.js"></script>
 </head>
 
 <body>
   <div class="ui-widget">
-    <select id="search-type" name="type" class = "ui-autocomplete-input">
+    <select id="search-type" name="type">
       <option value="course-code" selected>Course Code</option>
       <option value="course-name">Course Name</option>
       <option value="assignment-name">Assignment Name</option>
     </select>
-    <label for="search-term">: </label> <input id="search-term" class="ui-autocomplete-input"/>
+    <label for="search-term">: </label> <input id="search-term"/>
   </div>
 
-  <div id="info-dialog"><p align="center"></p></div>
+  <div id="info-dialog" class="ui-widget"><p align="center"></p></div>
 
-  <div id="confirm-dialog" title="Delete Jar File?">
+  <div id="confirm-dialog" class="ui-widget" title="Delete Jar File?">
     <p><span class="ui-icon ui-icon-alert" style="float: left; margin: 0 7px 20px 0;"></span>message</p>
   </div>
 
   <div style="display:inline-block; height:20px"></div>
 
-  <div id="assignments-grid-panel">
+  <div id="assignments-grid-panel" class="ui-widget">
     <table id="assignments-grid"></table> 
-    <div id="assignments-grid-pager"></div>
   </div>
 
   <div style="display:inline-block; height:20px"></div>
 
-  <div id="jars-grid-panel">
+  <div id="jars-grid-panel" class="ui-widget">
     <table id="jars-grid"></table> 
     <div id="jars-grid-pager"></div>
-    <input id="jar-file-selector" type="file" name="files[]" multiple>
+    <input id="jar-file-selector" type="file" name="file" multiple>
   </div>
   
   <script>
@@ -84,7 +83,8 @@
 	    
 	    var fileUpload = $('#jar-file-selector');
 
-	    var progressBars = [];
+	    var jarId = 0;
+	    var progressBarMax = 10;
 
 	    fileUpload.hide();
 	    jarsGridPanel.hide();
@@ -94,14 +94,6 @@
 			width: 500,
 			modal: true,
 			autoOpen: false,
-	        show: {
-	        	effect: "fade",
-	        	duration: 1000
-	        },
-	        hide: {
-	        	effect: "fade",
-	        	duration: 1000
-	        }
 		});
 
 	    confirm.dialog({
@@ -150,11 +142,14 @@
 		});
 		
 		assignmentsGrid.jqGrid( {
-			datatype: "json",
+			rowNum: 10,
 			height: 'auto',
-			colNames:['id', 'Course Code','Course Name', 'Assignment Name', 'External Tool','Canvas Instance'],
+			scrollOffset: 0,
+			hidegrid: false,
+			datatype: "local",
+			caption: "Assignments",
+			colNames:['Course Code','Course Name', 'Assignment Name', 'External Tool','Canvas Instance'],
 			colModel:[ 
-				{name:'id',index:'id', hidden:true, width:0,},
 				{name:'courseCode',index:'courseCode', width:100},
 				{name:'courseName',index:'courseName', width:200},
 				{name:'assignmentName',index:'assignmentName', width:300},
@@ -166,27 +161,26 @@
 				    refreshJarsGrid(id);
 					lastSelectedAssignmentId=id; 
 				}
-			},
-			gridComplete: function() {
-			    if ( jQuery('#assignments-grid').jqGrid('getGridParam','records') == 0 ) {
-			        hideAssignmentsGrid();
-				    showNoAssignmentsFound();
-			    } else {
-			        showAssignmentsGrid();
-			    }
-			},
-			rowNum:10,
-			rowList: [10,20,30],
-			pager: "#assignments-grid-pager",
-			caption: "Assignments"}
-		).navGrid("#assignments-grid-pager",{ edit:false, add:false, del:false, refresh:false} ); 
+			}
+		}); 
 
 		function refreshAssignmentsGrid(term) {
 		  	if (isUploadInProgress)
 				return;
   			    
 			var url = "fetch-assignments/"+ searchType.val() + "/" + encodeURIComponent(term);
-			assignmentsGrid.jqGrid('setGridParam',{url: url}).trigger("reloadGrid");			
+
+			$.getJSON( url, null, function( data, status, xhr ) {
+			    if ( data.length === 0) {
+			        hideJarsGrid();
+			        hideAssignmentsGrid();
+				    showNoAssignmentsFound();
+			    } else {
+					assignmentsGrid.clearGridData();
+					assignmentsGrid.addRowData('id', data);
+			        showAssignmentsGrid();
+			    }
+			});
 		};
 		
 		function hideAssignmentsGrid() {
@@ -211,14 +205,27 @@
 		    infoDialogContent.text(content);
 		    info.dialog( "open" );
 		}
+		
+		function showDuplicateFileDialog(filename) {
+		    var content = "Jar File '"+ filename + "' has been uploaded already. Please select someother file";
+		    info.dialog( "option", "title", "Duplicate Jar File" );
+		    infoDialogContent.text(content);
+		    info.dialog( "open" );
 
+		}
+		
 		jarsGrid.jqGrid({
-			datatype: "json",
-			height: 200,
-			colNames:['', '','Jar Name', 'Fully Qualified Main Class Name'],
+			rowNum:10,
+			height: 150,
+			scrollOffset: 0,
+			caption: "Jars",
+			pginput: false,
+			hidegrid: false,
+			pgbuttons: false,
+			datatype: "local",
+			pager: "#jars-grid-pager",
+			colNames:['Jar Name', 'Fully Qualified Main Class Name'],
 			colModel:[ 
-				{name:'id',index:'id', hidden:true, width:0},
-				{name:'assignmentId',index:'assignmentId', hidden:true, width:0},
 				{name:'name',index:'name', width:200, formatter:htmlFormat},
 				{name:'mainClass',index:'mainClass', width:300}
 			],
@@ -229,18 +236,13 @@
 					lastSelectedJarId=id; 
 				} 
 			},
-			gridComplete: function() {
-			    showJarsGrid();
-			},
-			rowNum:10,
-			rowList: [10,20,30],
-			pager: "#jars-grid-pager",
-			caption: "Jars"}
-		).navGrid("#jars-grid-pager", {
+		}).navGrid("#jars-grid-pager", {
 		    add:true, 
 		    del:true, 
 		    edit:false,
 		    refresh:false,
+		    alertcap:'No Jar Selected',
+		    alerttext: 'Please select a jar file to delete',
 		    addfunc: function() {
 		        fileUpload.click(); 
 		    },
@@ -250,21 +252,21 @@
 		});
 		
 		function htmlFormat( cellvalue, options, rowObject ){
-		   /* if (cellValue = 'delete') {		        
-		        var deleteButtonId = 'delete-button-' + rowObject.id;
-		        deleteButtons.push(deleteButtonId);
-		        return '<button id="' + deleteButtonId + '">delete</button>';
+		   if (rowObject.addProgressBar) {		       
+		        return '<div><span style="float: left;">' + cellvalue + '</span><div id="progressbar'+ rowObject.id +'"></div></div>';
 		    } else {
-		        var progressBarId = 'delete-button-' + rowObject.id;
-		        deleteButtons.push(progressBarId);
-		        return '<button id="' + deleteButtonId + '">delete</button>';
-		    } */
-		    return cellvalue;
+		        return cellvalue;
+		    } 		    
 		}
 		
 		function refreshJarsGrid(assignmentId) {
 			var url = "fetch-jars/"+ encodeURIComponent(assignmentId);
-			jarsGrid.jqGrid('setGridParam',{url: url}).trigger("reloadGrid");
+
+			$.getJSON( url, null, function( data, status, xhr ) {
+			    jarsGrid.clearGridData();
+			    jarsGrid.addRowData('id', data);
+			    showJarsGrid();
+			});
 		}
 		
 		function hideJarsGrid() {
@@ -293,19 +295,85 @@
 		}
 
 		function removeJarRecord(id) {
-			jarsGrid.jqGrid('delRowData',id);
+			jarsGrid.delRowData(id);
 		}
 		
+		$.widget('blueimp.fileupload', $.blueimp.fileupload, {
+			options: {
+				acceptFileTypes: /(\.|\/)(jar)$/i,
+		        processQueue: [
+					{ 
+						action: 'validate',
+						acceptFileTypes: '@'
+					}
+				]
+		    },
+
+		    processActions: {
+		        validate: function (data, options) {
+		            var dfd = $.Deferred();
+		            var file = data.files[data.index];
+		            
+		            var files = $.grep(jarsGrid.getRowData(), function(r, i){
+		                if (r.name === file.name) return r;
+		            });
+
+		            if (files.length > 1) {
+		                showDuplicateFileDialog(fileName);
+		                dfd.rejectWith(this, [data]);
+		                return dfd.promise();
+		            }
+
+		            files = $.grep(data.files, function(f, i) {
+		                if (f.name === file.name) return f; 
+		            });
+		            
+		            if (files.length > 1) {
+		                showDuplicateFileDialog(fileName);
+		                dfd.rejectWith(this, [data]);
+		                return dfd.promise();
+		            }            
+		            
+		            rowData = {
+		                id : (--jarId).toString(),
+	                    name : file.name,
+	                    mainClass: '',
+	                    addProgressBar: true,
+	                    file: file                 
+	                };
+		            
+		            jarsGrid.addRowData('id', [rowData]);
+		            
+		            var progressBar = $( "#progressbar" + rowData.id  );
+		            
+		            progressBar.progressbar({
+		                value: 1,
+		                max : progressBarMax,
+		            });
+		            
+		            data.context = progressBar;
+		            dfd.resolveWith(this, [data]);
+		            return dfd.promise();
+		        }
+		    }
+		});
+		
 		fileUpload.fileupload({
-		    url: 'jar-upload',
+		    url: 'upload-jar',
 			dataType: 'json',
 			dropZone: null,
-			pasteZone: null,
-	        add: function (e, data) {
-	            data.context = $('<p/>').text('Uploading...').appendTo(document.body);
+			pasteZone: null,			
+			progress: function(e, data) {
+				var progress = parseInt(data.loaded / (data.total / progressBarMax));
+				data.context.progressbar("option", "value", progress);
+			},
+			done: function(e, data) {
+			    data.context.progressbar("destroy");
+			},
+			add: function (e, data) {
 	            data.submit();
 	        },
-		});
+		});		
 	});
   </script>
 </body>
