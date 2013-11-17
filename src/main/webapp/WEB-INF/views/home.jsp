@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <title>Courseware Home</title>
-  <link rel="stylesheet" href="resources/jquery-ui-1.10.3/css/cupertino/jquery-ui-1.10.3.custom.min.css"></link>
+  <link rel="stylesheet" href="resources/jquery-ui-1.10.3/css/south-street/jquery-ui-1.10.3.custom.min.css"></link>
   <link rel="stylesheet" href="resources/jqgrid-4.5.4/css/ui.jqgrid.css"></link>
   <script src="resources/jquery-ui-1.10.3/js/jquery-1.9.1.js"></script>
   <script src="resources/jquery-ui-1.10.3/js/jquery-ui-1.10.3.custom.min.js"></script>
@@ -22,6 +22,17 @@
       text-align: left;
       white-space: nowrap;
     }
+    
+    .ui-progressbar {
+      height: 1em;
+      overflow: hidden;
+      text-align: left;
+    }
+    
+    div.popup-form { font-size: 62.5%; }
+    fieldset.popup-form { padding:0; border:0; margin-top:25px; }
+    label.popup-form, input.popup-input { display:block; }
+    input.text.popup-form { margin-bottom:12px; width:95%; padding: .4em; } 
   </style>    
 
 </head>
@@ -56,12 +67,25 @@
     <input id="jar-file-selector" type="file" name="file" multiple>
   </div>
   
+  <div id="jar-upload-form" title="Upload Jar File" class="ui-widget popup-form">
+    <!-- <p class="validateTips"></p> -->
+    
+    <form>
+      <fieldset class="popup-form">
+        <label class="popup-form" for="name">Name</label>
+        <input type="text" name="name" id="name" readOnly class="text ui-widget-content ui-corner-all popup-form" />
+        <label class="popup-form" for="mainclass">Fully Qualified Main Class</label>
+        <input type="text" name="mainclass" id="mainclass" value="" class="text ui-widget-content ui-corner-all popup-form" />
+      </fieldset>
+    </form>
+  </div>
+
   <script>
 	$(function() {
+	    var jarId = 0;
+	    var progressBarMax = 10;
 	    var lastSelectedJarId = -1;
 	    var lastSelectedAssignmentId = -1;
-
-	    var isUploadInProgress = false;
 
 	    var isJarsGridHidden = true;
 	    var isAssignmentsGridHidden = true;
@@ -75,6 +99,8 @@
 	    var confirm = $( "#confirm-dialog" );
 	    var confirmDialogContent = $( "#confirm-dialog > p" );
 
+	    var jarUploadForm = $( "#jar-upload-form" );
+	    
 	    var jarsGrid = $( "#jars-grid" );
 	    var jarsGridPanel = $( "#jars-grid-panel" );
 	    
@@ -82,9 +108,10 @@
 	    var assignmentsGridPanel = $( "#assignments-grid-panel" );
 	    
 	    var fileUpload = $('#jar-file-selector');
-
-	    var jarId = 0;
-	    var progressBarMax = 10;
+		var jarFileName =  $("input#name", jarUploadForm);
+		var jarMainClass =  $("input#mainclass", jarUploadForm);
+		
+	    var uploadQueue = {};
 
 	    fileUpload.hide();
 	    jarsGridPanel.hide();
@@ -118,10 +145,53 @@
 			}
 		});
 
-		searchTerm.autocomplete({
+	    jarUploadForm.dialog({
+	        width: 350,
+	        height: 300,
+	        modal: true,
+			autoOpen: false,
+	        buttons: {
+				"Upload": function() {		    
+				    var data = $( this ).data("data");
+					var file = data.files[0];;
+		            var rowData = {
+		                id : (--jarId).toString(),
+	                    name : file.name,
+	                    mainClass: jarMainClass.val().trim(),
+	                    addProgressBar: true,
+			        };
+
+		    
+		            jarsGrid.addRowData('id', [rowData]);
+		            
+		            var progressBar = $( "#progressbar" + rowData.id  );
+		            
+		            progressBar.progressbar({
+		                value: 0,
+		                max : progressBarMax,
+		            });
+		            
+		            uploadQueue[file.name] = [progressBar, rowData];
+		           
+		            data.formData = { 
+		            	mainclass: jarMainClass.val().trim(),
+						assignmentId: new Number(assignmentsGrid.getGridParam("selrow")).valueOf()	            	
+		           	};
+
+		    	    $( this ).dialog( "close" );
+		            data.submit();
+		            cleanUpJarUploadDialog($( this ));
+	       		},
+				Cancel: function() {
+				    cleanUpJarUploadDialog($( this ));
+				}
+	        },
+	    });
+
+     	searchTerm.autocomplete({
 			minLength : 2,
   			source : function( request, response ) {
-  			  	if (isUploadInProgress)
+  			  	if (isUploadInProgress())
   			  	    return;
 
 				var url = "search/" + searchType.val() + "/" + encodeURIComponent(request.term);
@@ -132,12 +202,18 @@
 			},
 
 			select: function( event, ui ) {
-			    refreshAssignmentsGrid(ui.item.value);
-			}        
+  			  	if (isUploadInProgress())
+  			  	    return;
+
+  			  	refreshAssignmentsGrid(ui.item.value);
+			} 
 		});
           
 		searchTerm.keydown(function( event ) {
-			if ( event.which == 13 )
+		  	if (isUploadInProgress())
+		  	    return;
+
+		  	if ( event.which == 13 )
 			    refreshAssignmentsGrid(this.value);
 		});
 		
@@ -156,7 +232,11 @@
 				{name:'externalTool',index:'externalTool', width:200},
 				{name:'canvasInstance',index:'canvasInstance', width:200}
 			],
-			onSelectRow: function(id) { 
+			onSelectRow: function(id) {
+			    if (isUploadInProgress()) {
+			        assignmentsGrid.setSelection(lastSelectedAssignmentId, false);
+			        return;
+			    }
 				if(id && id !== lastSelectedAssignmentId) {
 				    refreshJarsGrid(id);
 					lastSelectedAssignmentId=id; 
@@ -164,8 +244,97 @@
 			}
 		}); 
 
+		jarsGrid.jqGrid({
+			rowNum:10,
+			height: 150,
+			scrollOffset: 0,
+			caption: "Jars",
+			pginput: false,
+			hidegrid: false,
+			pgbuttons: false,
+			datatype: "local",
+			pager: "#jars-grid-pager",
+			colNames:['Jar Name', 'Fully Qualified Main Class Name'],
+			colModel:[ 
+				{name:'name',index:'name', width:250, formatter:htmlFormat},
+				{name:'mainClass',index:'mainClass', width:300}
+			],
+		}).navGrid("#jars-grid-pager", {
+		    add:true, 
+		    del:true, 
+		    edit:false,
+		    refresh:false,
+		    alertcap:'No Jar Selected',
+		    alerttext: 'Please select a jar file to delete',
+		    addfunc: function() {
+		        fileUpload.click(); 
+		    },
+		    delfunc: function(id) {
+		        showConfirmationDialog(id);
+		    }
+		});
+		
+		fileUpload.fileupload({
+		    url: 'upload-jar',
+			dataType: 'json',
+			dropZone: null,
+			pasteZone: null,
+			progress: function(e, data) {
+				var file = data.files[0];
+				var progress = parseInt(data.loaded / (data.total / progressBarMax));
+				uploadQueue[file.name][0].progressbar("option", "value", progress);
+			},
+			done: function(e, data) {
+				if (data.result.success) 
+				    return handleSuccessfulUpload(data);
+
+				handleFailedUpload(data);
+				
+			},
+			fail: function(e, data) {
+			    handleFailedUpload(data);
+			},
+			add: function (e, data) {
+	            var file = data.files[0];
+	            
+	            var files = $.grep(jarsGrid.getRowData(), function(r, i){
+	                if (r.name === file.name) return r;
+	            });
+
+	            if (files.length > 0) {
+	                showDuplicateFileDialog(file.name);
+	               	restoreFileUpload();
+	                data.abort();
+	               	return;
+	            }
+
+	            jarFileName.val(file.name);
+	            jarUploadForm.data("data", data);
+        		jarUploadForm.dialog( "open" );
+	        },
+		});	
+		
+	   	function cleanUpJarUploadDialog(dialog) {
+    	    restoreFileUpload();
+
+    	    dialog.dialog( "close" );
+    	    jarFileName.val('');
+    	    jarMainClass.val('');
+            
+    	    dialog.removeData("data");
+    	}
+
+    	// Since file input is cloned after every upload we need to do this otherwise the handle is not vaild anymore.
+    	function restoreFileUpload() {
+            fileUpload = $('#jar-file-selector');   	    
+    	}
+
+		function isUploadInProgress() {
+		    return Object.keys(uploadQueue).length != 0;
+		}
+		
 		function refreshAssignmentsGrid(term) {
-		  	if (isUploadInProgress)
+		  	if (isUploadInProgress())
 				return;
   			    
 			var url = "fetch-assignments/"+ searchType.val() + "/" + encodeURIComponent(term);
@@ -211,49 +380,21 @@
 		    info.dialog( "option", "title", "Duplicate Jar File" );
 		    infoDialogContent.text(content);
 		    info.dialog( "open" );
-
 		}
 		
-		jarsGrid.jqGrid({
-			rowNum:10,
-			height: 150,
-			scrollOffset: 0,
-			caption: "Jars",
-			pginput: false,
-			hidegrid: false,
-			pgbuttons: false,
-			datatype: "local",
-			pager: "#jars-grid-pager",
-			colNames:['Jar Name', 'Fully Qualified Main Class Name'],
-			colModel:[ 
-				{name:'name',index:'name', width:200, formatter:htmlFormat},
-				{name:'mainClass',index:'mainClass', width:300}
-			],
-			onSelectRow: function(id) { 
-				if(id && id !== lastSelectedJarId) {
-					var ret = jarsGrid.jqGrid('getRowData',id);
-					console.log("id="+ret.id+" Jar Name=" + ret.name + "...");
-					lastSelectedJarId=id; 
-				} 
-			},
-		}).navGrid("#jars-grid-pager", {
-		    add:true, 
-		    del:true, 
-		    edit:false,
-		    refresh:false,
-		    alertcap:'No Jar Selected',
-		    alerttext: 'Please select a jar file to delete',
-		    addfunc: function() {
-		        fileUpload.click(); 
-		    },
-		    delfunc: function(id) {
-		        showConfirmationDialog(id);
-		    }
-		});
+		function showUploadFailedDialog(filename) {
+		    var content = "Jar File '"+ filename + "' upload failed. Please try again later.";
+		    info.dialog( "option", "title", "Upload Failed!" );
+		    infoDialogContent.text(content);
+		    info.dialog( "open" );
+		}
 		
 		function htmlFormat( cellvalue, options, rowObject ){
 		   if (rowObject.addProgressBar) {		       
-		        return '<div><span style="float: left;">' + cellvalue + '</span><div id="progressbar'+ rowObject.id +'"></div></div>';
+		        return 	'<div id="progressbar-parent'+ rowObject.id +'">' +
+		        			'<span style="float: left; margin-right:25px;">' +  cellvalue + '</span>' + 
+		        			'<div style="margin-left:25px;" class="ui-widget" align="right" id="progressbar'+ rowObject.id +'"></div>' +
+		        		'</div>';
 		    } else {
 		        return cellvalue;
 		    } 		    
@@ -288,7 +429,7 @@
 		function showConfirmationDialog(id) {
 		    var jarName = jarsGrid.jqGrid('getRowData', id).name;
 		    var content = "Do you want to delete '" + jarName + "'. Are you sure?";
-		    confirm.dialog( "option", "width", content.length + 480);
+		    confirm.dialog( "option", "width", content.length + 430);
 		    confirmDialogContent.get(0).lastChild.nodeValue = content;
 		    confirm.data("id", id);
 		    confirm.dialog( "open" );
@@ -297,83 +438,28 @@
 		function removeJarRecord(id) {
 			jarsGrid.delRowData(id);
 		}
+			
+		function handleSuccessfulUpload(data) {
+			var file = data.files[0];
+			var rowData = uploadQueue[file.name][1];
+			var progressBar = uploadQueue[file.name][0];				
+			progressBar.progressbar("option", "value", progressBarMax);
+			
+			jarsGrid.delRowData(rowData.id);
+			rowData.id = data.result.id;
+			rowData.addProgressBar = false;
+			
+			jarsGrid.addRowData('id', [rowData]);
+			delete uploadQueue[file.name]; 
+		}
 		
-		$.widget('blueimp.fileupload', $.blueimp.fileupload, {
-			options: {
-				acceptFileTypes: /(\.|\/)(jar)$/i,
-		        processQueue: [
-					{ 
-						action: 'validate',
-						acceptFileTypes: '@'
-					}
-				]
-		    },
-
-		    processActions: {
-		        validate: function (data, options) {
-		            var dfd = $.Deferred();
-		            var file = data.files[data.index];
-		            
-		            var files = $.grep(jarsGrid.getRowData(), function(r, i){
-		                if (r.name === file.name) return r;
-		            });
-
-		            if (files.length > 1) {
-		                showDuplicateFileDialog(fileName);
-		                dfd.rejectWith(this, [data]);
-		                return dfd.promise();
-		            }
-
-		            files = $.grep(data.files, function(f, i) {
-		                if (f.name === file.name) return f; 
-		            });
-		            
-		            if (files.length > 1) {
-		                showDuplicateFileDialog(fileName);
-		                dfd.rejectWith(this, [data]);
-		                return dfd.promise();
-		            }            
-		            
-		            rowData = {
-		                id : (--jarId).toString(),
-	                    name : file.name,
-	                    mainClass: '',
-	                    addProgressBar: true,
-	                    file: file                 
-	                };
-		            
-		            jarsGrid.addRowData('id', [rowData]);
-		            
-		            var progressBar = $( "#progressbar" + rowData.id  );
-		            
-		            progressBar.progressbar({
-		                value: 1,
-		                max : progressBarMax,
-		            });
-		            
-		            data.context = progressBar;
-		            dfd.resolveWith(this, [data]);
-		            return dfd.promise();
-		        }
-		    }
-		});
-		
-		fileUpload.fileupload({
-		    url: 'upload-jar',
-			dataType: 'json',
-			dropZone: null,
-			pasteZone: null,			
-			progress: function(e, data) {
-				var progress = parseInt(data.loaded / (data.total / progressBarMax));
-				data.context.progressbar("option", "value", progress);
-			},
-			done: function(e, data) {
-			    data.context.progressbar("destroy");
-			},
-			add: function (e, data) {
-	            data.submit();
-	        },
-		});		
+		function handleFailedUpload(data) {
+			var file = data.files[0];
+    		var rowData = uploadQueue[file.name][1];				
+    		jarsGrid.delRowData(rowData.id);
+    		delete uploadQueue[file.name];
+    		showUploadFailedDialog(file.name);
+		}
 	});
   </script>
 </body>

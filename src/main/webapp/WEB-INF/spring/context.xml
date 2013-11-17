@@ -22,7 +22,8 @@
 
   <!-- Only needed because of fileupload  -->
   <beans:bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
-      <beans:property name="maxUploadSize" value="10485760" />
+      <!-- beans:property name="maxUploadSize" value="10485760" />  -->
+      <beans:property name="maxInMemorySize" value="1024" /> <!-- 5242880 -->
   </beans:bean>
 
   <context:component-scan base-package="edu.sjsu.courseware.*" />

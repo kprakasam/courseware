@@ -87,23 +87,21 @@ public class JarDAO {
      */
     public Jar insert(Jar jar, byte[] jarfile) {
         final String sql = "INSERT INTO jar " + 
-                "(jar_id," +
-                "assignment_id," +
-                "jar_name," +
-                "jar_main_class" +
-                "jar_file) " +
-           "VALUES " +
-                "(:jarId," +
-                ":assignmentId," +
-                ":jarName," +
-                ":jarMainClass" +
-                ":jarFile)";
+                                "(assignment_id," +
+                                "jar_name," +
+                                "jar_main_class," +
+                                "jar_file) " +
+                           "VALUES " +
+                                "(:assignmentId," +
+                                ":jarName," +
+                                ":jarMainClass," +
+                                ":jarFile)";
+       
         Map<String, Object> params = new HashMap<String, Object>();
-        params.put("jarId", jar.getId());
-        params.put("assignmentId", jar.getAssignmentId());
+        params.put("jarFile", jarfile);
         params.put("jarName", jar.getName());
         params.put("jarMainClass", jar.getMainClass());
-        params.put("jar", jarfile);
+        params.put("assignmentId", jar.getAssignmentId());
 
         try {
             namedParameterJdbcTemplate.update(sql, params);
@@ -119,14 +117,14 @@ public class JarDAO {
 
     public Jar get(long assignmentId, String jarName) {
         String sql = "SELECT " +
-                "jar_id," +
-                "assignment_id," +
-                "jar_name," +
-                "jar_main_classs " +
-             "FROM " +
-                "jar "+
-             "WHERE " +
-                "assignment_id = :assignmentId AND jar_name = :jarName";
+                        "jar_id," +
+                        "assignment_id," +
+                        "jar_name," +
+                        "jar_main_class " +
+                     "FROM " +
+                        "jar "+
+                     "WHERE " +
+                        "assignment_id = :assignmentId AND jar_name = :jarName";
 
         Map<String, Object> params = new HashMap<String, Object>();
         params.put("jarName", jarName);
@@ -148,13 +146,34 @@ public class JarDAO {
 
     public boolean delete(long jarId) {
         String sql = "DELETE  " +
-             "FROM " +
-                "jar "+
-             "WHERE " +
-                "jar_id = :jarId";
+                     "FROM " +
+                        "jar "+
+                     "WHERE " +
+                        "jar_id = :jarId";
 
         Map<String, Long> params = Collections.singletonMap("jarId", jarId);
 
         return namedParameterJdbcTemplate.update(sql, params) != 0;
     }
+
+    public boolean updatePreviousMainClass(long jarId, long assignmentId) {
+        final String sql =  "UPATE jar " + 
+                                "SET " +
+                                "jar_main_class = NULL" +
+                            "WHETE " +
+                                "jar_id != :jarId," +
+                                "assignment_id = :assignmentId";
+       
+        Map<String, Long> params = new HashMap<String, Long>();
+        params.put("assignmentId", assignmentId);
+        params.put("jarId", jarId);
+
+        try {
+            namedParameterJdbcTemplate.update(sql, params);
+            return true;
+        } catch (DataAccessException dae) {
+            logger.error("Exception when updaing previous main class of jar" + dae);
+            return false;
+        } 
+     }
 }

@@ -1,5 +1,6 @@
 package edu.sjsu.courseware.controller;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Set;
 
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
 
 import edu.sjsu.courseware.dao.AssignmentDAO;
@@ -80,7 +82,23 @@ public class Home {
     }
     
     @RequestMapping(value="/upload-jar", method=RequestMethod.POST)
-    public @ResponseBody UploadedFile[] upload(@RequestParam("file[]") MultipartFile file) {
-        return new UploadedFile[] { new UploadedFile(file)};
+    public @ResponseBody UploadedFile upload(@RequestParam("file") MultipartFile file, MultipartHttpServletRequest request) throws IOException {      
+ 
+        edu.sjsu.courseware.Jar jar = new edu.sjsu.courseware.Jar();
+        String mainclass = request.getParameter("mainclass").toString();
+        Long assignmentId = Long.valueOf(request.getParameter("assignmentId").toString());
+        
+        jar.setMainClass(mainclass.toString());
+        jar.setAssignmentId(assignmentId);
+        jar.setName(file.getOriginalFilename());
+        jar = jarDAO.insert(jar, file.getBytes());
+        
+        if (jar == null)
+            return new UploadedFile(-1, false, file);
+        
+        if (mainclass != null && !mainclass.isEmpty())
+            jarDAO.updatePreviousMainClass(jar.getId(), assignmentId);
+        
+        return new UploadedFile(jar.getId(), true, file);
     }
 }
