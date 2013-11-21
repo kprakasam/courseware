@@ -123,6 +123,13 @@ public class Launcher {
             edu.sjsu.courseware.jnlp.Jar jarFile  = new edu.sjsu.courseware.jnlp.Jar();
             jarFile.setHref(jar.getAssignmentId() + "/" + jar.getName());
             jnlp.getResources().getJar().add(jarFile);
+           
+            if (jar.getMainClass() != null && !jar.getMainClass().isEmpty()) {
+                jarFile.setMain(true);
+                jnlp.getApplet().setMainClass(jar.getMainClass());
+            } else {
+                jarFile.setMain(false);
+            }
         }
         
         ByteArrayOutputStream out = new ByteArrayOutputStream(2048);
